@@ -1,0 +1,11 @@
+name: orbcode-map
+title: OrbCode Map
+version: 0.2.0
+description: Visual canvas for OrbCode project maps — explore codebase architecture as an interactive graph
+icon: Waypoints
+entry: ./dist/index.html
+dev: ./src/index.tsx
+api:
+  - GET /api/plates
+  - GET /api/artifacts
+shard: orbcode

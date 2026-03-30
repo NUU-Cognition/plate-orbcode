@@ -1,0 +1,279 @@
+@import "tailwindcss";
+
+@source "/Users/nathan/dev/nuu/main/packages/plate-sdk/src/**/*.{ts,tsx}";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: rgba(255, 255, 255, 0.86);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: #3d6a9a;
+  --primary-foreground: #ffffff;
+  --secondary: #ecf5ee;
+  --secondary-foreground: #2d4b34;
+  --muted: #eff2f7;
+  --muted-foreground: #5f6b7d;
+  --accent: #ebf2f9;
+  --accent-foreground: #2a4f72;
+  --destructive: #c4736e;
+  --destructive-foreground: #ffffff;
+  --border: rgba(26, 43, 65, 0.12);
+  --input: rgba(26, 43, 65, 0.12);
+  --ring: rgba(61, 106, 154, 0.3);
+  --radius: 1rem;
+  --brand: #3d6a9a;
+  --brand-foreground: #ffffff;
+
+  --water: #5b93c7;
+  --water-accent: #3d6a9a;
+  --water-bg: #ebf2f9;
+  --water-bg2: #d5e4f0;
+  --water-text: #244968;
+  --water-faint: #9fbdd5;
+
+  --fire: #c4736e;
+  --fire-accent: #8b4a46;
+  --fire-bg: #f9edec;
+  --fire-bg2: #f0d8d5;
+  --fire-text: #6f322f;
+  --fire-faint: #d8ada8;
+
+  --earth: #6a9e76;
+  --earth-accent: #4a7a58;
+  --earth-bg: #ecf5ee;
+  --earth-bg2: #d5e8d8;
+  --earth-text: #35513c;
+  --earth-faint: #a0c4a6;
+
+  --air: #8a9ab5;
+  --air-accent: #6878a0;
+  --air-bg: #eff2f7;
+  --air-bg2: #dfe4ee;
+  --air-text: #3e4c68;
+  --air-faint: #b8c2d5;
+
+  --sun: #c4a046;
+  --sun-accent: #8b7232;
+  --sun-bg: #f9f3e6;
+  --sun-bg2: #f0e4c8;
+  --sun-text: #6f5a20;
+  --sun-faint: #d8c480;
+
+  --teal: #4ea8a0;
+  --teal-accent: #2e8880;
+  --teal-bg: #e4f4f2;
+  --teal-bg2: #c8e8e4;
+  --teal-text: #1a5c56;
+  --teal-faint: #8ac8c0;
+
+  --rose: #c2648a;
+  --rose-accent: #9e4570;
+  --rose-bg: #f9e8f0;
+  --rose-bg2: #f0cede;
+  --rose-text: #702048;
+  --rose-faint: #d498b0;
+}
+
+.dark {
+  --background: #131316;
+  --foreground: #e8e8ec;
+  --card: rgba(25, 28, 34, 0.88);
+  --card-foreground: #e8e8ec;
+  --popover: #1a1a1e;
+  --popover-foreground: #e8e8ec;
+  --primary: #78b0da;
+  --primary-foreground: #0f1722;
+  --secondary: #1a2520;
+  --secondary-foreground: #a0d0a8;
+  --muted: #20242c;
+  --muted-foreground: #8f98a7;
+  --accent: #182530;
+  --accent-foreground: #a0cce5;
+  --destructive: #da908a;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: rgba(120, 176, 218, 0.34);
+  --brand: #78b0da;
+  --brand-foreground: #ffffff;
+
+  --water: #78b0da;
+  --water-accent: #5888b2;
+  --water-bg: #182530;
+  --water-bg2: #203040;
+  --water-text: #a0cce5;
+  --water-faint: #4a7898;
+
+  --fire: #da908a;
+  --fire-accent: #a86862;
+  --fire-bg: #2a1e1c;
+  --fire-bg2: #382824;
+  --fire-text: #e8b5b0;
+  --fire-faint: #a06058;
+
+  --earth: #88be92;
+  --earth-accent: #5e9a6c;
+  --earth-bg: #1a2520;
+  --earth-bg2: #223028;
+  --earth-text: #a0d0a8;
+  --earth-faint: #5a8e62;
+
+  --air: #9aaac5;
+  --air-accent: #7088b0;
+  --air-bg: #1a1c22;
+  --air-bg2: #222838;
+  --air-text: #b0c0d8;
+  --air-faint: #586880;
+
+  --sun: #d4b85a;
+  --sun-accent: #b29842;
+  --sun-bg: #2a2518;
+  --sun-bg2: #383020;
+  --sun-text: #e8d898;
+  --sun-faint: #a09040;
+
+  --teal: #7ec8c0;
+  --teal-accent: #4ea8a0;
+  --teal-bg: #182624;
+  --teal-bg2: #203230;
+  --teal-text: #a0dcd6;
+  --teal-faint: #4a9a92;
+
+  --rose: #d888a8;
+  --rose-accent: #b06888;
+  --rose-bg: #281a22;
+  --rose-bg2: #342430;
+  --rose-text: #e8b0c6;
+  --rose-faint: #a86080;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+
+  --color-water: var(--water);
+  --color-water-accent: var(--water-accent);
+  --color-water-bg: var(--water-bg);
+  --color-water-bg2: var(--water-bg2);
+  --color-water-text: var(--water-text);
+  --color-water-faint: var(--water-faint);
+
+  --color-fire: var(--fire);
+  --color-fire-accent: var(--fire-accent);
+  --color-fire-bg: var(--fire-bg);
+  --color-fire-bg2: var(--fire-bg2);
+  --color-fire-text: var(--fire-text);
+  --color-fire-faint: var(--fire-faint);
+
+  --color-earth: var(--earth);
+  --color-earth-accent: var(--earth-accent);
+  --color-earth-bg: var(--earth-bg);
+  --color-earth-bg2: var(--earth-bg2);
+  --color-earth-text: var(--earth-text);
+  --color-earth-faint: var(--earth-faint);
+
+  --color-air: var(--air);
+  --color-air-accent: var(--air-accent);
+  --color-air-bg: var(--air-bg);
+  --color-air-bg2: var(--air-bg2);
+  --color-air-text: var(--air-text);
+  --color-air-faint: var(--air-faint);
+
+  --color-sun: var(--sun);
+  --color-sun-accent: var(--sun-accent);
+  --color-sun-bg: var(--sun-bg);
+  --color-sun-bg2: var(--sun-bg2);
+  --color-sun-text: var(--sun-text);
+  --color-sun-faint: var(--sun-faint);
+
+  --color-teal: var(--teal);
+  --color-teal-accent: var(--teal-accent);
+  --color-teal-bg: var(--teal-bg);
+  --color-teal-bg2: var(--teal-bg2);
+  --color-teal-text: var(--teal-text);
+  --color-teal-faint: var(--teal-faint);
+
+  --color-rose: var(--rose);
+  --color-rose-accent: var(--rose-accent);
+  --color-rose-bg: var(--rose-bg);
+  --color-rose-bg2: var(--rose-bg2);
+  --color-rose-text: var(--rose-text);
+  --color-rose-faint: var(--rose-faint);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 6px);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "IBM Plex Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  code,
+  pre {
+    font-family: "IBM Plex Mono", "Geist Mono", ui-monospace, monospace;
+  }
+}
+
+/* React Flow overrides */
+.react-flow__node.selected .react-flow__handle {
+  background: var(--brand) !important;
+}
+
+.select-mode-cursor .react-flow__pane {
+  cursor: crosshair !important;
+}
+
+.react-flow__selection {
+  background: oklch(from var(--brand) l c h / 0.08) !important;
+  border: 1.5px solid oklch(from var(--brand) l c h / 0.4) !important;
+  border-radius: 4px;
+}
+
+.react-flow__nodesselection-rect {
+  background: oklch(from var(--brand) l c h / 0.06) !important;
+  border: 1.5px dashed oklch(from var(--brand) l c h / 0.35) !important;
+  border-radius: 4px;
+}
+
+/* OrbCraft node glow for nodes with active orbs */
+.orbcraft-glow {
+  box-shadow: 0 0 12px 2px oklch(from var(--brand) l c h / 0.25);
+  transition: box-shadow 0.3s ease;
+}
