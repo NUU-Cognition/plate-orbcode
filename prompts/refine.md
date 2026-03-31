@@ -39,10 +39,12 @@ Also read any other surrounding artifacts or code that would help you understand
 
 Then refine the artifacts according to these instructions:
 
-{{#if additionalContext}}
-{{ additionalContext }}
-{{else}}
 Update the artifacts to accurately reflect the current state of the codebase. Fix any stale references, update descriptions, and ensure code-refs point to real files.
+
+{{#if additionalContext}}
+Also incorporate these user instructions:
+
+{{ additionalContext }}
 {{/if}}
 
 ## OrbCraft

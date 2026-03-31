@@ -28,11 +28,15 @@ The E2E test lives in the Testing/ folder of the OrbCode project, not in the Map
 
 E2E test description:
 
+Create an E2E test that verifies cross-system behavior.
+
 {{#if additionalContext}}
+Additional instructions from the user:
+
 {{ additionalContext }}
-{{else}}
-Create an E2E test that verifies cross-system behavior. Ask the user for more details about the flow being tested.
 {{/if}}
+
+Ask the user for more details about the flow being tested if the scope is still unclear.
 
 ## OrbCraft
 

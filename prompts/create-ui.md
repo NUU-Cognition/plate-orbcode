@@ -29,11 +29,15 @@ The UI artifact lives in the Map/ folder of the OrbCode project.
 
 UI description:
 
+Create a new UI surface that fits the available context and project boundaries.
+
 {{#if additionalContext}}
+Additional instructions from the user:
+
 {{ additionalContext }}
-{{else}}
-Create a new UI surface based on the context. Ask the user for more details if the scope is unclear.
 {{/if}}
+
+Ask the user for more details if the scope is still unclear.
 
 ## OrbCraft
 

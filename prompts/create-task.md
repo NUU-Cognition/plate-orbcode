@@ -21,26 +21,24 @@ Read each artifact to understand the current state and what needs to change.
 {{/if}}
 
 Create a (Task) artifact using the Projects shard template (tmp-proj-task-v0.1) with these requirements:
+- Describe what modifications need to be made to the artifacts and/or their underlying code.
 {{#if artifactPaths}}
-
-1. Link the task to the target artifacts in the Related Documents section
-2. Describe what modifications need to be made to the artifacts and/or their underlying code
-3. After creating the task, update each target artifact's frontmatter to add a `tasks:` field (or append to existing) with a wikilink to the new task
-4. Link the task session in the artifact's orbh-sessions frontmatter
-{{else}}
-
-1. Create a task based on the user's instructions below
-2. If no specific artifacts are targeted, create the task for the project at large
+- Link the task to the target artifacts in the Related Documents section.
+- After creating the task, update each target artifact's frontmatter to add a `tasks:` field (or append to an existing list) with a wikilink to the new task.
+- Link the task session in the artifact's `orbh-sessions` frontmatter.
 {{/if}}
+- If no specific artifacts are targeted, create the task for the project at large.
 
 Note: status transitions are handled manually by the user, not by the task agent.
 
 Instructions from the user:
 
-{{#if additionalContext}}
-{{ additionalContext }}
-{{else}}
 Create a task based on the artifact context.
+
+{{#if additionalContext}}
+Additional instructions from the user:
+
+{{ additionalContext }}
 {{/if}}
 
 ## OrbCraft

@@ -28,11 +28,15 @@ The feature lives in the Map/ folder of the OrbCode project.
 
 Feature description:
 
+Create a new feature that fits the available context and project boundaries.
+
 {{#if additionalContext}}
+Additional instructions from the user:
+
 {{ additionalContext }}
-{{else}}
-Create a new feature based on the context. Ask the user for more details if the scope is unclear.
 {{/if}}
+
+Ask the user for more details if the scope is still unclear.
 
 ## OrbCraft
 

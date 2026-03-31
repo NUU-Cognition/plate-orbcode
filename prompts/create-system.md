@@ -28,11 +28,15 @@ The system artifact lives in the Map/ folder of the OrbCode project.
 
 System description:
 
+Create a new system boundary that represents a distinct bounded context.
+
 {{#if additionalContext}}
+Additional instructions from the user:
+
 {{ additionalContext }}
-{{else}}
-Create a new system boundary. Ask the user for more details about what this system encapsulates.
 {{/if}}
+
+Ask the user for more details about what this system encapsulates if the boundary is still unclear.
 
 ## OrbCraft
 

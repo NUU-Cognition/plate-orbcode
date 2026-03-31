@@ -29,10 +29,12 @@ The test lives in the Testing/ folder of the OrbCode project, not in the Map/ fo
 
 Test description:
 
-{{#if additionalContext}}
-{{ additionalContext }}
-{{else}}
 Create a test that verifies the feature behavior described in the context artifacts.
+
+{{#if additionalContext}}
+Additional instructions from the user:
+
+{{ additionalContext }}
 {{/if}}
 
 ## OrbCraft

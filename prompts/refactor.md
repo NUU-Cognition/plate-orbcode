@@ -18,10 +18,12 @@ You are refactoring OrbCode map artifacts. The user has selected the following a
 Read each artifact fully to understand the current map structure, boundaries, and relationships.
 
 {{#if additionalContext}}
+Additional instructions from the user:
+
 {{ additionalContext }}
-{{else}}
-Review the selected artifacts and suggest how they could be better organized — splitting large artifacts, merging related ones, or restructuring the hierarchy. Present your plan before making changes.
 {{/if}}
+
+If no additional instructions were provided, review the selected artifacts and suggest how they could be better organized — splitting large artifacts, merging related ones, or restructuring the hierarchy. Present your plan before making changes.
 
 After making changes, run [[hwkfl-orbc-sync]] to verify the map is consistent.
 
