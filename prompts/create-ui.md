@@ -10,8 +10,22 @@ variables:
     type: string
     required: false
     description: Description of the UI surface to create
+  projectName:
+    type: string
+    required: false
+    description: The OrbCode project name this artifact belongs to
+  stubPath:
+    type: string
+    required: false
+    description: Path to the stub file to rewrite in place
 ---
 You are creating a new draft UI artifact in the OrbCode map.
+{{#if projectName}}
+
+**OrbCode Project:** {{ projectName }}
+
+All artifacts you create must be placed under the `(OrbCode Project) {{ projectName }}` project. Use this project name in artifact filenames.
+{{/if}}
 {{#if artifactPaths}}
 
 Context artifacts:
@@ -19,9 +33,13 @@ Context artifacts:
 
 Read these artifacts to understand the context. The new UI should fit within their scope.
 {{/if}}
+{{#if stubPath}}
+
+**Stub file:** A stub artifact has been created at `{{ stubPath }}`. You must rewrite this file in place with the full UI content — do NOT create a new file. Rename the stub to its final name after writing the content.
+{{/if}}
 
 Create the UI artifact using the OrbCode UI template (tmp-orbc-ui-v0.2).
-Name it: `(OrbCode Project) [ProjectName] . (UI) [Descriptive Name].md`
+Name it: `(OrbCode Project) {{#if projectName}}{{ projectName }}{{/if}} . (UI) [Descriptive Name].md`
 UI covers all user-facing surfaces: pages, views, CLI commands, REST endpoints, GraphQL endpoints.
 Set status to `draft` — this UI has not been implemented yet.
 Link it to the appropriate parent system or UI via artifact-refs.

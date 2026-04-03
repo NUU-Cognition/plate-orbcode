@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   useMentionAutocomplete,
+  usePlateContext,
   type ArtifactSuggestion as SDKArtifactSuggestion,
 } from '@nuucognition/plate-sdk';
 import {
@@ -29,17 +30,30 @@ export function LaunchDialog({
   onCancel,
 }: {
   open: boolean;
-  action?: 'refactor' | 'refine' | 'create-feature' | 'create-ui' | 'create-task' | 'create-test' | 'create-e2e' | 'create-system';
+  action?: 'refactor' | 'refine' | 'refresh-check' | 'create-feature' | 'create-ui' | 'create-task' | 'create-test' | 'create-e2e' | 'create-system' | 'create-environment';
   artifactCount: number;
   onConfirm: (runtime: string, additionalContext: string) => void;
   onCancel: () => void;
 }) {
-  const [runtime, setRuntime] = useState(() => {
-    try { return localStorage.getItem('preferred-runtime') ?? 'claude'; } catch { return 'claude'; }
-  });
+  const context = usePlateContext();
+  const [runtime, setRuntime] = useState('claude');
   const [additionalContext, setAdditionalContext] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mention = useMentionAutocomplete();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void context.state.get<string>('preferred-runtime').then((savedRuntime) => {
+      if (!cancelled && (savedRuntime === 'claude' || savedRuntime === 'codex')) {
+        setRuntime(savedRuntime);
+      }
+    }).catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [context.state]);
 
   // Focus textarea when dialog opens
   useEffect(() => {
@@ -51,7 +65,7 @@ export function LaunchDialog({
   }, [open]);
 
   const handleConfirm = () => {
-    try { localStorage.setItem('preferred-runtime', runtime); } catch { /* ignore */ }
+    void context.state.set('preferred-runtime', runtime).catch(() => {});
     onConfirm(runtime, additionalContext);
   };
 
@@ -80,17 +94,21 @@ export function LaunchDialog({
         <DialogHeader>
           <DialogTitle>
             {action === 'refine' ? 'Refine Artifact'
+              : action === 'refresh-check' ? 'Refresh Check'
               : action === 'create-feature' ? 'Create Feature'
               : action === 'create-ui' ? 'Create UI'
               : action === 'create-task' ? 'Create Task'
               : action === 'create-test' ? 'Create Test'
               : action === 'create-e2e' ? 'Create E2E Test'
               : action === 'create-system' ? 'Create System'
+              : action === 'create-environment' ? 'Create Environment'
               : 'Refactor Artifacts'}
           </DialogTitle>
           <DialogDescription>
             {action === 'refine'
               ? 'Launch an agent to refine this artifact. It will gather context from surrounding artifacts and code before applying your instructions.'
+              : action === 'refresh-check'
+              ? 'Launch an agent to check whether this artifact is up to date with the source code. It will validate code-refs, descriptions, and artifact-refs — and fix any drift it finds.'
               : action === 'create-feature'
               ? 'Launch an agent to create a new draft feature in the OrbCode map.'
               : action === 'create-ui'
@@ -103,6 +121,8 @@ export function LaunchDialog({
               ? 'Launch an agent to create a draft E2E test spanning systems and features.'
               : action === 'create-system'
               ? 'Launch an agent to create a new system boundary in the OrbCode map.'
+              : action === 'create-environment'
+              ? 'Launch an agent to create a new environment in the OrbCode map.'
               : `Launch an agent to refactor ${artifactCount} artifact${artifactCount > 1 ? 's' : ''} based on your instructions.`}
           </DialogDescription>
         </DialogHeader>
@@ -173,6 +193,8 @@ export function LaunchDialog({
                 placeholder={
                   action === 'refine'
                     ? 'e.g. Update code-refs to match the latest file structure... (use @ to reference artifacts)'
+                    : action === 'refresh-check'
+                    ? 'e.g. Focus on the auth module — it was refactored last week... (use @ to reference artifacts)'
                     : action === 'create-feature'
                     ? 'e.g. A feature that handles webhook delivery with retry logic and dead-letter queue...'
                     : action === 'create-ui'
@@ -185,6 +207,8 @@ export function LaunchDialog({
                     ? 'e.g. End-to-end flow: user creates project → adds features → runs sync...'
                     : action === 'create-system'
                     ? 'e.g. A system boundary for the authentication and authorization subsystem...'
+                    : action === 'create-environment'
+                    ? 'e.g. A CI environment running GitHub Actions with Node 20 and pnpm...'
                     : 'e.g. Split this feature into two — one for the CLI command and one for the core logic... (use @ to reference artifacts)'
                 }
                 className="min-h-20 text-xs"

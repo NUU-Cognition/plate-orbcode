@@ -3,12 +3,15 @@ import { parsePrompt, renderPrompt } from '@nuucognition/prompt-loader';
 export type OrbCodePromptName =
   | 'refactor'
   | 'refine'
+  | 'refresh-check'
+  | 'update-from-task'
   | 'create-feature'
   | 'create-ui'
   | 'create-task'
   | 'create-test'
   | 'create-e2e'
-  | 'create-system';
+  | 'create-system'
+  | 'create-environment';
 
 async function loadPromptFile(name: OrbCodePromptName) {
   const response = await fetch(`${import.meta.env.BASE_URL}${name}.md`, { cache: 'no-store' });

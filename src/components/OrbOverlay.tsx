@@ -413,7 +413,7 @@ function OrbOverlayComponent({
         inset: 0,
         pointerEvents: 'none',
         overflow: 'hidden',
-        zIndex: 5,
+        zIndex: 10,
       }}
     >
       <svg ref={svgRef} width="100%" height="100%">
@@ -516,7 +516,7 @@ function OrbOverlayComponent({
             left: tooltipPos.x + 14,
             top: tooltipPos.y - 10,
             pointerEvents: 'none',
-            zIndex: 100,
+            zIndex: 50,
           }}
           className="rounded-lg border border-border bg-card px-3 py-2 shadow-lg"
         >

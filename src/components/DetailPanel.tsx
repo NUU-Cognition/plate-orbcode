@@ -8,6 +8,7 @@ import {
   Layers,
   Layout,
   Plus,
+  RefreshCw,
   Route,
   Scissors,
   Sparkles,
@@ -27,6 +28,7 @@ export function DetailPanel({
   sessionStatuses,
   onRefactor,
   onRefine,
+  onRefreshCheck,
   onCreateFeature,
   onCreateUi,
   onCreateTask,
@@ -44,6 +46,7 @@ export function DetailPanel({
   sessionStatuses: Map<string, EnrichedSessionStatus>;
   onRefactor: () => void;
   onRefine: () => void;
+  onRefreshCheck: () => void;
   onCreateFeature: () => void;
   onCreateUi: () => void;
   onCreateTask: () => void;
@@ -140,6 +143,11 @@ export function DetailPanel({
           <Tooltip label="Refine">
             <Button size="icon" variant="outline" onClick={onRefine} aria-label="Refine" className="h-7 w-7">
               <Sparkles className="h-3.5 w-3.5" />
+            </Button>
+          </Tooltip>
+          <Tooltip label="Refresh Check">
+            <Button size="icon" variant="outline" onClick={onRefreshCheck} aria-label="Refresh Check" className="h-7 w-7">
+              <RefreshCw className="h-3.5 w-3.5" />
             </Button>
           </Tooltip>
           <Tooltip label="Refactor">

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ActionDeclaration } from '@nuucognition/plate-sdk';
 import {
   ArtifactPreview,
   useArtifacts,
@@ -39,6 +40,7 @@ import {
   Orbit,
   PackageOpen,
   Radio,
+  RefreshCw,
   Route,
   Scissors,
   Server,
@@ -57,12 +59,15 @@ import { OrbOverlay } from './OrbOverlay';
 import { DetailPanel } from './DetailPanel';
 import { LaunchDialog } from './LaunchDialog';
 import { ActionsDropdown } from './ActionsDropdown';
+import * as SelectPrimitive from '@radix-ui/react-select';
 import { cn } from '../lib/utils';
 import {
+  applyOrbCodeViewConfig,
   buildGraph,
   buildProjectHierarchy,
   computeHiddenIds,
   isOrbCodeArtifact,
+  parseOrbCodeViewConfig,
   stripMd,
   toProject,
   TYPE_COLORS,
@@ -74,18 +79,57 @@ import {
 import { useOrbcraftSessions } from '../hooks/useOrbcraftSessions';
 import { useGraphState } from '../hooks/useGraphState';
 import { useSessionManagement, SESSION_STATUS_COLORS } from '../hooks/useSessionManagement';
-import { useAgentLaunchers } from '../agents/launchAgent';
+import { buildUpdateOrbCodeFromTaskLaunch, useAgentLaunchers } from '../agents/launchAgent';
+import { OffsetSmoothStepEdge } from './OffsetSmoothStepEdge';
 
-// ── Node Types ──────────────────────────────────────────────────────
+// ── Node & Edge Types ───────────────────────────────────────────────
 
 const nodeTypes: NodeTypes = {
   mapNode: MapNode,
+};
+
+const edgeTypes = {
+  offsetSmoothStep: OffsetSmoothStepEdge,
 };
 
 // ── Connected App ───────────────────────────────────────────────────
 
 export function ConnectedApp() {
   const context = usePlateContext();
+  const registeredActions = useMemo<ActionDeclaration[]>(() => [
+    {
+      id: 'orbcode-map.update-from-task',
+      label: 'Update OrbCode From Task',
+      description: 'Launch an OrbCode sync session using a completed task as the source of truth.',
+      icon: 'Orbit',
+      input: {
+        taskArtifactId: {
+          type: 'string',
+          label: 'Task Artifact ID',
+          description: 'The task artifact UUID to load for context.',
+          required: true,
+          placeholder: 'c8a3e6f1-...',
+        },
+        runtime: {
+          type: 'string',
+          label: 'Runtime',
+          description: 'Optional runtime override. Defaults to claude.',
+          placeholder: 'claude',
+        },
+        additionalContext: {
+          type: 'string',
+          label: 'Additional Context',
+          description: 'Optional extra instructions for the OrbCode sync session.',
+          placeholder: 'Specific areas that changed',
+        },
+      },
+      execute: (input) => buildUpdateOrbCodeFromTaskLaunch(context, input),
+    },
+  ], [context]);
+
+  useEffect(() => {
+    context.registerActions(registeredActions);
+  }, [context, registeredActions]);
 
   // ── Artifact Subscriptions ──────────────────────────────────────
   const { artifacts: orbcodeArtifacts } = useArtifacts(isOrbCodeArtifact);
@@ -102,22 +146,27 @@ export function ConnectedApp() {
 
   // ── Project Selection ──────────────────────────────────────────
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [launchDialogOpen, setLaunchDialogOpen] = useState(false);
-  const [launchAction, setLaunchAction] = useState<'refactor' | 'refine' | 'create-feature' | 'create-ui' | 'create-task' | 'create-test' | 'create-e2e' | 'create-system'>('refactor');
+  const [launchAction, setLaunchAction] = useState<'refactor' | 'refine' | 'refresh-check' | 'create-feature' | 'create-ui' | 'create-task' | 'create-test' | 'create-e2e' | 'create-system' | 'create-environment'>('refactor');
   const [launchTarget, setLaunchTarget] = useState<'selection' | 'detail'>('selection');
   const [orbcraftMode, setOrbcraftMode] = useState(true);
   const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
   const [sidebarView, setSidebarView] = useState<'artifacts' | 'sessions' | 'context' | 'orbs'>('artifacts');
+  const [viewConfigVersion, setViewConfigVersion] = useState(0);
+  const [stateHydrated, setStateHydrated] = useState(false);
+
+  // Per-project collapsed node state: { [projectId]: string[] }
+  const collapsedPerProject = useRef<Record<string, string[]>>({});
 
   const selectedProject = useMemo(
     () => projects.find(p => p.id === selectedProjectId) ?? projects[0] ?? null,
     [projects, selectedProjectId],
   );
 
-  // Auto-select first project
+  // Auto-select first project, or reset if saved project no longer exists
   useEffect(() => {
-    if (!selectedProjectId && projects.length > 0) {
+    if (projects.length === 0) return;
+    if (!selectedProjectId || !projects.some(p => p.id === selectedProjectId)) {
       setSelectedProjectId(projects[0].id);
     }
   }, [projects, selectedProjectId]);
@@ -163,9 +212,149 @@ export function ConnectedApp() {
     showConsumers, setShowConsumers, showE2E, setShowE2E, showEnvs, setShowEnvs,
     focusMode, setFocusMode, selectMode, setSelectMode, selectedIds, setSelectedIds,
     selectedNodeId, setSelectedNodeId,
-    collapsedNodes, treeChildCounts,
+    collapsedNodes, setCollapsedNodes, treeChildCounts,
     toggleCollapse, expandAll, collapseAll, expandAllTests, collapseAllTests,
   } = graphState;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const [allState, customViewConfig] = await Promise.all([
+          context.state.getAll<unknown>(),
+          context.state.getBoard<unknown>('default'),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        const visibility = (allState['visibility'] ?? null) as Record<string, unknown> | null;
+        if (visibility) {
+          if (typeof visibility.showData === 'boolean') setShowData(visibility.showData);
+          if (typeof visibility.showUI === 'boolean') setShowUI(visibility.showUI);
+          if (typeof visibility.showDeps === 'boolean') setShowDeps(visibility.showDeps);
+          if (typeof visibility.showConsumers === 'boolean') setShowConsumers(visibility.showConsumers);
+          if (typeof visibility.showE2E === 'boolean') setShowE2E(visibility.showE2E);
+          if (typeof visibility.showEnvs === 'boolean') setShowEnvs(visibility.showEnvs);
+          if (typeof visibility.focusMode === 'boolean') setFocusMode(visibility.focusMode);
+          if (typeof visibility.selectMode === 'boolean') setSelectMode(visibility.selectMode);
+        }
+
+        const savedProjectId = allState['selected-project-id'];
+        if (typeof savedProjectId === 'string') {
+          setSelectedProjectId(savedProjectId);
+        }
+
+        const resolvedProjectId = (typeof savedProjectId === 'string' ? savedProjectId : null) ?? projects[0]?.id;
+
+        const collapsed = allState['collapsed-nodes'];
+        if (collapsed && typeof collapsed === 'object' && !Array.isArray(collapsed)) {
+          // Per-project map format
+          const map = collapsed as Record<string, unknown>;
+          const parsed: Record<string, string[]> = {};
+          for (const [k, v] of Object.entries(map)) {
+            if (Array.isArray(v)) {
+              parsed[k] = v.filter((x): x is string => typeof x === 'string');
+            }
+          }
+          collapsedPerProject.current = parsed;
+        } else if (Array.isArray(collapsed)) {
+          // Legacy flat array — migrate to current project on first load
+          const flat = collapsed.filter((value): value is string => typeof value === 'string');
+          if (resolvedProjectId) {
+            collapsedPerProject.current = { [resolvedProjectId]: flat };
+          }
+        }
+
+        // Load collapsed state for the resolved project
+        if (resolvedProjectId && collapsedPerProject.current[resolvedProjectId]) {
+          setCollapsedNodes(new Set(collapsedPerProject.current[resolvedProjectId]));
+        }
+
+        const prefs = (allState['ui-preferences'] ?? null) as Record<string, unknown> | null;
+        if (prefs) {
+          if (typeof prefs.orbcraftMode === 'boolean') setOrbcraftMode(prefs.orbcraftMode);
+          if (prefs.sidebarView === 'artifacts' || prefs.sidebarView === 'sessions' || prefs.sidebarView === 'context' || prefs.sidebarView === 'orbs') {
+            setSidebarView(prefs.sidebarView);
+          }
+        }
+
+        const parsedViewConfig = parseOrbCodeViewConfig(customViewConfig);
+        if (parsedViewConfig) {
+          applyOrbCodeViewConfig(parsedViewConfig);
+          setViewConfigVersion((current) => current + 1);
+        }
+      } finally {
+        if (!cancelled) {
+          setStateHydrated(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    context.plateName,
+    context.serverUrl,
+    context.state,
+    setCollapsedNodes,
+    setFocusMode,
+    setSelectMode,
+    setShowConsumers,
+    setShowData,
+    setShowDeps,
+    setShowE2E,
+    setShowEnvs,
+    setShowUI,
+  ]);
+
+  useEffect(() => {
+    if (!stateHydrated) {
+      return;
+    }
+
+    void context.state.set('visibility', {
+      showData,
+      showUI,
+      showDeps,
+      showConsumers,
+      showE2E,
+      showEnvs,
+      focusMode,
+      selectMode,
+    }).catch(() => {});
+  }, [context.state, focusMode, selectMode, showConsumers, showData, showDeps, showE2E, showEnvs, showUI, stateHydrated]);
+
+  useEffect(() => {
+    if (!stateHydrated || !selectedProjectId) {
+      return;
+    }
+
+    collapsedPerProject.current[selectedProjectId] = [...collapsedNodes].sort();
+    void context.state.set('collapsed-nodes', { ...collapsedPerProject.current }).catch(() => {});
+  }, [collapsedNodes, context.state, stateHydrated, selectedProjectId]);
+
+  useEffect(() => {
+    if (!stateHydrated) {
+      return;
+    }
+
+    void context.state.set('ui-preferences', {
+      orbcraftMode,
+      sidebarView,
+    }).catch(() => {});
+  }, [context.state, orbcraftMode, sidebarView, stateHydrated]);
+
+  useEffect(() => {
+    if (!stateHydrated || !selectedProjectId) {
+      return;
+    }
+
+    void context.state.set('selected-project-id', selectedProjectId).catch(() => {});
+  }, [context.state, selectedProjectId, stateHydrated]);
 
   const hiddenIds = useMemo(() => {
     if (!hierarchy || collapsedNodes.size === 0) return new Set<string>();
@@ -186,7 +375,7 @@ export function ConnectedApp() {
       showData, showUI, showDeps, showConsumers, showE2E, showEnvs, filterIds: collapseFilterIds,
     });
     return { fullNodes: nodes, fullEdges: edges };
-  }, [orbcodeArtifacts, selectedProject, showData, showUI, showDeps, showConsumers, showE2E, showEnvs, collapseFilterIds]);
+  }, [orbcodeArtifacts, selectedProject, showData, showUI, showDeps, showConsumers, showE2E, showEnvs, collapseFilterIds, viewConfigVersion]);
 
   // ── Detail Panel ───────────────────────────────────────────────
   // ── Keyboard Shortcuts ────────────────────────────────────────
@@ -415,12 +604,14 @@ export function ConnectedApp() {
   }, []);
 
   const openRefineDialog = useCallback((target: 'detail' | 'selection' = 'detail') => openActionDialog('refine', target), [openActionDialog]);
+  const openRefreshCheckDialog = useCallback((target: 'detail' | 'selection' = 'detail') => openActionDialog('refresh-check', target), [openActionDialog]);
   const openCreateFeatureDialog = useCallback((target: 'detail' | 'selection' = 'detail') => openActionDialog('create-feature', target), [openActionDialog]);
   const openCreateTaskDialog = useCallback((target: 'detail' | 'selection' = 'detail') => openActionDialog('create-task', target), [openActionDialog]);
   const openCreateUiDialog = useCallback((target: 'detail' | 'selection' = 'detail') => openActionDialog('create-ui', target), [openActionDialog]);
   const openCreateTestDialog = useCallback((target: 'detail' | 'selection' = 'detail') => openActionDialog('create-test', target), [openActionDialog]);
   const openCreateE2eDialog = useCallback((target: 'detail' | 'selection' = 'detail') => openActionDialog('create-e2e', target), [openActionDialog]);
   const openCreateSystemDialog = useCallback((target: 'detail' | 'selection' = 'detail') => openActionDialog('create-system', target), [openActionDialog]);
+  const openCreateEnvironmentDialog = useCallback((target: 'detail' | 'selection' = 'detail') => openActionDialog('create-environment', target), [openActionDialog]);
 
   // ── Agent Launchers ────────────────────────────────────────────
   const agentLaunchers = useAgentLaunchers({
@@ -518,105 +709,114 @@ export function ConnectedApp() {
       <div className="w-[260px] flex-shrink-0 border-r border-border bg-card flex flex-col overflow-hidden">
         {/* Project Switcher */}
         <div className="px-3 py-3 border-b border-border">
-          <div className="relative">
-            <button
-              onClick={() => setProjectMenuOpen(!projectMenuOpen)}
-              className={cn(
-                'flex w-full items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 transition hover:bg-accent',
-                projectMenuOpen && 'ring-2 ring-ring/50',
-              )}
+          <SelectPrimitive.Root
+            value={selectedProjectId ?? undefined}
+            onValueChange={(newId) => {
+              if (selectedProjectId) {
+                collapsedPerProject.current[selectedProjectId] = [...collapsedNodes].sort();
+              }
+              const saved = collapsedPerProject.current[newId];
+              setCollapsedNodes(new Set(saved ?? []));
+              setSelectedProjectId(newId);
+              closeDetail();
+              setSelectedContextId(null);
+            }}
+          >
+            <SelectPrimitive.Trigger
+              className="flex w-full items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 transition hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              aria-label="Select project"
             >
               <Layers className="h-4 w-4 text-brand flex-shrink-0" />
               <span className="text-sm font-semibold truncate flex-1 text-left">
-                {selectedProject?.name ?? 'No projects'}
+                <SelectPrimitive.Value placeholder="No projects" />
               </span>
-              <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition flex-shrink-0', projectMenuOpen && 'rotate-180')} />
-            </button>
-            {projectMenuOpen && projects.length > 1 && (
-              <div className="absolute left-0 top-full mt-1 z-50 w-full rounded-lg border border-border bg-card shadow-lg">
-                {projects.map(p => (
-                  <button
-                    key={p.id}
-                    onClick={() => {
-                      setSelectedProjectId(p.id);
-                      setProjectMenuOpen(false);
-                      closeDetail();
-                      setSelectedContextId(null);
-                    }}
-                    className={cn(
-                      'flex w-full items-center gap-2 px-3 py-2 text-left transition first:rounded-t-lg last:rounded-b-lg hover:bg-accent',
-                      p.id === selectedProject?.id && 'bg-accent/50',
-                    )}
-                  >
-                    <Layers className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate">{p.name}</div>
-                      <div className="text-[10px] text-muted-foreground">{p.projectType}</div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+              <SelectPrimitive.Icon asChild>
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              </SelectPrimitive.Icon>
+            </SelectPrimitive.Trigger>
+            <SelectPrimitive.Portal>
+              <SelectPrimitive.Content
+                position="popper"
+                sideOffset={4}
+                className="z-50 w-[var(--radix-select-trigger-width)] rounded-lg border border-border bg-card shadow-lg overflow-hidden"
+              >
+                <SelectPrimitive.Viewport>
+                  {projects.map(p => (
+                    <SelectPrimitive.Item
+                      key={p.id}
+                      value={p.id}
+                      className="flex items-center gap-2 px-3 py-2 text-left transition outline-none cursor-default data-[highlighted]:bg-accent"
+                    >
+                      <Layers className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <SelectPrimitive.ItemText>{p.name}</SelectPrimitive.ItemText>
+                        <div className="text-[10px] text-muted-foreground">{p.projectType}</div>
+                      </div>
+                    </SelectPrimitive.Item>
+                  ))}
+                </SelectPrimitive.Viewport>
+              </SelectPrimitive.Content>
+            </SelectPrimitive.Portal>
+          </SelectPrimitive.Root>
         </div>
 
         {/* View Toggle */}
-        <div className="px-3 py-2 border-b border-border flex items-center gap-1">
+        <div className="px-2 py-1.5 border-b border-border flex items-center gap-0.5 overflow-x-auto scrollbar-hide">
           <button
             onClick={() => setSidebarView('artifacts')}
             className={cn(
-              'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition',
+              'flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition',
               sidebarView === 'artifacts'
                 ? 'bg-accent text-foreground'
                 : 'text-muted-foreground hover:bg-accent/50',
             )}
           >
-            <MapIcon className="h-3.5 w-3.5" />
+            <MapIcon className="h-3 w-3" />
             Map
-          </button>
-          <button
-            onClick={() => setSidebarView('sessions')}
-            className={cn(
-              'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition',
-              sidebarView === 'sessions'
-                ? 'bg-accent text-foreground'
-                : 'text-muted-foreground hover:bg-accent/50',
-            )}
-          >
-            <Radio className="h-3.5 w-3.5" />
-            Sessions
-            {activeSessionCount > 0 && (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-earth/20 px-1 text-[9px] font-medium text-earth">
-                {activeSessionCount}
-              </span>
-            )}
           </button>
           <button
             onClick={() => setSidebarView('context')}
             className={cn(
-              'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition',
+              'flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition',
               sidebarView === 'context'
                 ? 'bg-accent text-foreground'
                 : 'text-muted-foreground hover:bg-accent/50',
             )}
           >
-            <FileText className="h-3.5 w-3.5" />
+            <FileText className="h-3 w-3" />
             Context
+          </button>
+          <button
+            onClick={() => setSidebarView('sessions')}
+            className={cn(
+              'flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition',
+              sidebarView === 'sessions'
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:bg-accent/50',
+            )}
+          >
+            <Radio className="h-3 w-3" />
+            Sessions
+            {activeSessionCount > 0 && (
+              <span className="flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-earth/20 px-0.5 text-[8px] font-medium text-earth">
+                {activeSessionCount}
+              </span>
+            )}
           </button>
           {orbcraftMode && (
             <button
               onClick={() => setSidebarView('orbs')}
               className={cn(
-                'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition',
+                'flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition',
                 sidebarView === 'orbs'
                   ? 'bg-accent text-foreground'
                   : 'text-muted-foreground hover:bg-accent/50',
               )}
             >
-              <Orbit className="h-3.5 w-3.5" />
+              <Orbit className="h-3 w-3" />
               Orbs
               {orbcraftSessions.length > 0 && (
-                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-brand/20 px-1 text-[9px] font-medium text-brand">
+                <span className="flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-brand/20 px-0.5 text-[8px] font-medium text-brand">
                   {orbcraftSessions.length}
                 </span>
               )}
@@ -700,11 +900,11 @@ export function ConnectedApp() {
           {hierarchy && hierarchy.dataList.length > 0 && (
             <>
               <div className="px-3 py-2 mt-1 flex items-center gap-1.5 border-t border-border/50">
-                <Database className="h-3.5 w-3.5 text-[#8b6aaf]" />
+                <Database className="h-3.5 w-3.5 text-data" />
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Data</span>
                 <button
                   onClick={() => setShowData(!showData)}
-                  className={cn('ml-auto p-0.5 rounded transition', showData ? 'text-[#8b6aaf] hover:bg-[#f3eef9]' : 'text-muted-foreground/40 hover:bg-accent')}
+                  className={cn('ml-auto p-0.5 rounded transition', showData ? 'text-data hover:bg-data-bg' : 'text-muted-foreground/40 hover:bg-accent')}
                   title={showData ? 'Hide data from graph' : 'Show data on graph'}
                 >
                   {showData ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
@@ -784,59 +984,86 @@ export function ConnectedApp() {
             </>
           )}
 
-          {sidebarView === 'sessions' && (
-            <div className="px-1 py-2 space-y-0.5">
-              {plateSessions.length === 0 ? (
+          {sidebarView === 'sessions' && (() => {
+            if (plateSessions.length === 0) {
+              return (
                 <div className="px-3 py-8 text-center">
                   <Radio className="h-5 w-5 text-muted-foreground/30 mx-auto mb-2" />
                   <p className="text-xs text-muted-foreground/60">No sessions for this project</p>
                 </div>
-              ) : (
-                [...plateSessions].sort((a, b) => {
-                  const aEnriched = sessionStatuses.get(a);
-                  const bEnriched = sessionStatuses.get(b);
-                  const priority = (s: string) => s === 'awaiting-input' ? 0 : s === 'active' ? 1 : 2;
-                  const aPriority = priority(aEnriched?.status ?? 'unknown');
-                  const bPriority = priority(bEnriched?.status ?? 'unknown');
-                  if (aPriority !== bPriority) return aPriority - bPriority;
-                  const aTime = aEnriched?.lastActive ? new Date(aEnriched.lastActive).getTime() : 0;
-                  const bTime = bEnriched?.lastActive ? new Date(bEnriched.lastActive).getTime() : 0;
-                  return bTime - aTime;
-                }).map(sid => {
-                  const enriched = sessionStatuses.get(sid);
-                  const statusLabel = enriched?.status ?? 'unknown';
-                  const isActive = statusLabel === 'active' || statusLabel === 'awaiting-input';
-                  const title = enriched?.title ?? sid.slice(0, 8);
-                  const action = typeof enriched?.metadata?.action === 'string' ? enriched.metadata.action : null;
-                  const phaseProgress = [enriched?.phase, enriched?.progress].filter(Boolean).join(' · ');
-                  return (
-                    <Tooltip key={sid} label={`Session ${sid}`}>
-                      <button
-                        onClick={() => context.openSession(sid)}
-                        className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs hover:bg-accent transition text-left"
-                      >
-                        {isActive ? (
-                          <Loader2 className="h-3 w-3 text-earth animate-spin flex-shrink-0" />
-                        ) : (
-                          <div className={cn('h-2 w-2 rounded-full flex-shrink-0', SESSION_STATUS_COLORS[statusLabel]?.split(' ')[0] ?? 'bg-muted')} />
-                        )}
-                        <span className="truncate flex-1">{title}</span>
-                        {phaseProgress && <span className="text-[9px] text-muted-foreground truncate max-w-[100px]">{phaseProgress}</span>}
-                        {action && (
-                          <Badge variant="outline" className="text-[9px] px-1 py-0 flex-shrink-0 capitalize">
-                            {action}
-                          </Badge>
-                        )}
-                        <Badge variant="outline" className={cn('text-[9px] px-1 py-0 flex-shrink-0', SESSION_STATUS_COLORS[statusLabel])}>
-                          {statusLabel}
-                        </Badge>
-                      </button>
-                    </Tooltip>
-                  );
-                })
-              )}
-            </div>
-          )}
+              );
+            }
+
+            const sorted = [...plateSessions].sort((a, b) => {
+              const aEnriched = sessionStatuses.get(a);
+              const bEnriched = sessionStatuses.get(b);
+              const aTime = aEnriched?.lastActive ? new Date(aEnriched.lastActive).getTime() : 0;
+              const bTime = bEnriched?.lastActive ? new Date(bEnriched.lastActive).getTime() : 0;
+              return bTime - aTime;
+            });
+
+            const activeSessions = sorted.filter(sid => sessionStatuses.get(sid)?.status === 'active');
+            const awaitingSessions = sorted.filter(sid => sessionStatuses.get(sid)?.status === 'awaiting-input');
+            const otherSessions = sorted.filter(sid => {
+              const s = sessionStatuses.get(sid)?.status;
+              return s !== 'active' && s !== 'awaiting-input';
+            });
+
+            const renderSessionCard = (sid: string) => {
+              const enriched = sessionStatuses.get(sid);
+              const statusLabel = enriched?.status ?? 'unknown';
+              const title = enriched?.title ?? sid.slice(0, 8);
+              const isActive = statusLabel === 'active';
+              const isTerminal = statusLabel === 'finished' || statusLabel === 'failed' || statusLabel === 'unknown';
+              return (
+                <Tooltip key={sid} label={`Session ${sid}`} className="w-full">
+                  <button
+                    onClick={() => context.openSession(sid)}
+                    className="flex w-full items-center gap-2 px-3.5 py-2 cursor-pointer transition-colors hover:bg-accent/50 text-left"
+                  >
+                    {isActive ? (
+                      <Loader2 className="h-2.5 w-2.5 text-earth animate-spin flex-shrink-0" />
+                    ) : (
+                      <span className={cn('inline-block w-2 h-2 rounded-full shrink-0', SESSION_STATUS_COLORS[statusLabel]?.split(' ')[0] ?? 'bg-muted-foreground')} />
+                    )}
+                    <span className={cn('text-xs font-medium truncate', isTerminal ? 'text-muted-foreground/50' : 'text-foreground')}>
+                      {title}
+                    </span>
+                  </button>
+                </Tooltip>
+              );
+            };
+
+            return (
+              <div className="px-1 py-2 space-y-1.5">
+                {activeSessions.length > 0 && (
+                  <div className="mx-1.5 rounded-xl border border-earth/25 bg-earth/5 overflow-hidden">
+                    <div className="px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-earth/70 border-b border-earth/15">
+                      Active
+                    </div>
+                    <div className="divide-y divide-earth/10">
+                      {activeSessions.map(renderSessionCard)}
+                    </div>
+                  </div>
+                )}
+                {awaitingSessions.length > 0 && (
+                  <div className="mx-1.5 rounded-xl border border-sun/25 bg-sun/5 overflow-hidden">
+                    <div className="px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-sun/70 border-b border-sun/15">
+                      Awaiting Input
+                    </div>
+                    <div className="divide-y divide-sun/10">
+                      {awaitingSessions.map(renderSessionCard)}
+                    </div>
+                  </div>
+                )}
+                {otherSessions.length > 0 && (
+                  <div className="divide-y divide-border/30">
+                    {otherSessions.map(renderSessionCard)}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {sidebarView === 'context' && (
             <div className="px-1 py-2 space-y-0.5">
@@ -935,7 +1162,7 @@ export function ConnectedApp() {
             onClick={() => setShowData(!showData)}
             className={cn(
               'p-1.5 rounded-md transition',
-              showData ? 'bg-[#f3eef9] text-[#8b6aaf]' : 'bg-muted text-muted-foreground/40',
+              showData ? 'bg-data-bg text-data' : 'bg-muted text-muted-foreground/40',
             )}
             title={showData ? 'Hide Data' : 'Show Data'}
           >
@@ -983,8 +1210,10 @@ export function ConnectedApp() {
             isShiftDrag.current = false;
           }}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           nodesDraggable={false}
           nodesConnectable={false}
+          edgesFocusable={false}
           zoomOnDoubleClick={false}
           selectionOnDrag={selectMode}
           selectionMode={SelectionMode.Partial}
@@ -1007,20 +1236,20 @@ export function ConnectedApp() {
               const data = node.data as unknown as MapNodeData | undefined;
               if (!data?.artifactType) return 'var(--border)';
               const colorMap: Record<string, string> = {
-                system: 'var(--water)',
-                feature: 'var(--earth)',
-                data: '#8b6aaf',
-                ui: 'var(--fire)',
-                dependency: 'var(--teal)',
-                consumer: 'var(--rose)',
-                overview: 'var(--air)',
+                system: 'var(--water-faint)',
+                feature: 'var(--earth-faint)',
+                data: 'var(--data-faint)',
+                ui: 'var(--fire-faint)',
+                dependency: 'var(--teal-faint)',
+                consumer: 'var(--rose-faint)',
+                overview: 'var(--air-faint)',
               };
               return colorMap[data.artifactType] ?? 'var(--border)';
             }}
-            maskColor="var(--background)"
+            maskColor="var(--minimap-mask)"
             pannable
             zoomable
-            nodeStrokeWidth={3}
+            nodeStrokeWidth={0}
           />
 
           {/* Mode Toggles */}
@@ -1097,7 +1326,14 @@ export function ConnectedApp() {
                   <Sparkles className="h-3.5 w-3.5" />
                   Refine
                 </button>
-                <ActionsDropdown onAction={(action) => openActionDialog(action, 'selection')} label="Create" />
+                <button
+                  onClick={() => openRefreshCheckDialog('selection')}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-accent"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Refresh Check
+                </button>
+                <ActionsDropdown onAction={(action) => openActionDialog(action, 'selection')} label="Create" direction="up" />
                 <div className="h-4 w-px bg-border" />
                 {(['draft', 'stale', 'active', 'verified', 'untested', 'pass', 'fail', 'deprecated'] as const).map(s => (
                   <button
@@ -1162,6 +1398,7 @@ export function ConnectedApp() {
           sessionStatuses={sessionStatuses}
           onRefactor={() => openRefactorDialog('detail')}
           onRefine={() => openRefineDialog('detail')}
+          onRefreshCheck={() => openRefreshCheckDialog('detail')}
           onCreateFeature={() => openCreateFeatureDialog('detail')}
           onCreateUi={() => openCreateUiDialog('detail')}
           onCreateTask={() => openCreateTaskDialog('detail')}
@@ -1206,12 +1443,14 @@ export function ConnectedApp() {
         artifactCount={launchTarget === 'detail' ? 1 : selectedIds.size}
         onConfirm={
           launchAction === 'refine' ? agentLaunchers.launchRefine
+          : launchAction === 'refresh-check' ? agentLaunchers.launchRefreshCheck
           : launchAction === 'create-feature' ? agentLaunchers.launchCreateFeature
           : launchAction === 'create-ui' ? agentLaunchers.launchCreateUi
           : launchAction === 'create-task' ? agentLaunchers.launchCreateTask
           : launchAction === 'create-test' ? agentLaunchers.launchCreateTest
           : launchAction === 'create-e2e' ? agentLaunchers.launchCreateE2e
           : launchAction === 'create-system' ? agentLaunchers.launchCreateSystem
+          : launchAction === 'create-environment' ? agentLaunchers.launchCreateEnvironment
           : agentLaunchers.launchRefactor
         }
         onCancel={() => setLaunchDialogOpen(false)}

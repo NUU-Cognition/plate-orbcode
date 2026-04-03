@@ -101,9 +101,12 @@ export function useSessionManagement(
   const plateSessions = useMemo(() => {
     return allSessionIds.filter(sid => {
       const status = sessionStatuses.get(sid);
-      if (!status?.metadata || status.metadata.plate !== 'orbcode-map') return false;
-      if (currentProjectName && status.metadata.project) {
-        return status.metadata.project === currentProjectName;
+      if (!status?.metadata) return false;
+      // All OrbCode-related sessions (from Map or Board) use the unified orbcode-project field
+      const sessionProject = status.metadata['orbcode-project'];
+      if (!sessionProject) return false;
+      if (currentProjectName) {
+        return sessionProject === currentProjectName;
       }
       return true;
     });
@@ -146,7 +149,7 @@ export function useSessionManagement(
         title: session?.title ?? title,
         runCount: session?.runCount ?? 0,
         lastActive: session?.updated,
-        metadata: { plate: 'orbcode-map', project: currentProjectName ?? '', action, 'orbcraft-artifacts': artifactIds.join(',') },
+        metadata: { plate: 'orbcode-map', 'orbcode-project': currentProjectName ?? '', project: currentProjectName ?? '', action, 'orbcraft-artifacts': artifactIds.join(',') },
       });
       return next;
     });

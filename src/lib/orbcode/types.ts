@@ -1,4 +1,5 @@
 import type { Artifact } from '@nuucognition/plate-sdk';
+import defaultViewConfig from '../../../views/default.json';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -18,21 +19,10 @@ export type MapArtifactType = 'project' | 'system' | 'feature' | 'data' | 'ui' |
 //  -4: E2E Tests                — bottom band (below consumers)
 export type Column = -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | 4 | 5;
 
-export const TYPE_COLUMN: Record<MapArtifactType, Column> = {
-  env: -3,
-  dependency: -1,
-  system: 0,
-  overview: 0,
-  testsuite: 1,
-  feature: 2,
-  test: 3,
-  data: 4,
-  ui: 5,
-  consumer: -2,
-  e2e: -4,
-  project: 0,
-  unknown: 2,
-};
+export interface OrbCodeViewConfig {
+  columns: Record<MapArtifactType, Column>;
+  colors: Record<MapArtifactType, { bg: string; border: string; text: string; icon: string }>;
+}
 
 export type ArtifactStatus = 'draft' | 'untested' | 'stale' | 'verified' | 'pass' | 'fail' | 'active' | 'deprecated';
 
@@ -73,21 +63,35 @@ export interface FeatureEntry {
 
 // ── Constants ────────────────────────────────────────────────────────
 
+export function parseOrbCodeViewConfig(value: unknown): OrbCodeViewConfig | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const columns = (value as { columns?: unknown }).columns;
+  const colors = (value as { colors?: unknown }).colors;
+  if (!columns || typeof columns !== 'object' || !colors || typeof colors !== 'object') {
+    return null;
+  }
+
+  return {
+    columns: columns as Record<MapArtifactType, Column>,
+    colors: colors as Record<MapArtifactType, { bg: string; border: string; text: string; icon: string }>,
+  };
+}
+
+const parsedDefaultViewConfig = parseOrbCodeViewConfig(defaultViewConfig);
+
+export const TYPE_COLUMN: Record<MapArtifactType, Column> = { ...(parsedDefaultViewConfig?.columns ?? {}) };
+
 export const TYPE_COLORS: Record<MapArtifactType, { bg: string; border: string; text: string; icon: string }> = {
-  project:    { bg: 'bg-muted',       border: 'border-border',       text: 'text-foreground',     icon: 'text-muted-foreground' },
-  system:     { bg: 'bg-water-bg',    border: 'border-water/30',     text: 'text-water-text',     icon: 'text-water' },
-  feature:    { bg: 'bg-earth-bg',    border: 'border-earth/30',     text: 'text-earth-text',     icon: 'text-earth' },
-  data:       { bg: 'bg-[#f3eef9]',   border: 'border-[#a78bcc]/30', text: 'text-[#5b3d80]',     icon: 'text-[#8b6aaf]' },
-  ui:         { bg: 'bg-fire-bg',     border: 'border-fire/30',      text: 'text-fire-text',      icon: 'text-fire' },
-  dependency: { bg: 'bg-teal-bg',      border: 'border-teal/30',      text: 'text-teal-text',      icon: 'text-teal' },
-  consumer:   { bg: 'bg-rose-bg',      border: 'border-rose/30',      text: 'text-rose-text',      icon: 'text-rose' },
-  overview:   { bg: 'bg-air-bg',      border: 'border-air/30',       text: 'text-air-text',       icon: 'text-air' },
-  test:       { bg: 'bg-[#e8f5e9]',   border: 'border-[#66bb6a]/30', text: 'text-[#2e7d32]',     icon: 'text-[#43a047]' },
-  testsuite:  { bg: 'bg-water-bg',    border: 'border-water/30',     text: 'text-water-text',     icon: 'text-water' },
-  e2e:        { bg: 'bg-[#fff3e0]',   border: 'border-[#ffb74d]/30', text: 'text-[#e65100]',     icon: 'text-[#fb8c00]' },
-  env:    { bg: 'bg-[#e0f2f1]',   border: 'border-[#4db6ac]/30', text: 'text-[#00695c]',     icon: 'text-[#26a69a]' },
-  unknown:    { bg: 'bg-muted',       border: 'border-border',       text: 'text-foreground',     icon: 'text-muted-foreground' },
+  ...(parsedDefaultViewConfig?.colors ?? {}),
 };
+
+export function applyOrbCodeViewConfig(config: OrbCodeViewConfig) {
+  Object.assign(TYPE_COLUMN, config.columns);
+  Object.assign(TYPE_COLORS, config.colors);
+}
 
 // ── Node Dimensions ─────────────────────────────────────────────────
 
@@ -121,7 +125,7 @@ export const ALLOWED_EDGE: Record<string, Set<string>> = {
   dependency: new Set([]),
   consumer:   new Set(['system', 'feature', 'data', 'ui']),
   overview:   new Set(['system', 'feature']),
-  test:       new Set(['feature']),
+  test:       new Set(['feature', 'env']),
   testsuite:  new Set(['test', 'feature', 'system', 'env']),
   e2e:        new Set(['feature', 'system', 'env']),
   env:    new Set([]),

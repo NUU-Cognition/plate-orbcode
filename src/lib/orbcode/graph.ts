@@ -6,6 +6,10 @@ import {
   type MapNodeData,
   type FeatureEntry,
   TYPE_COLUMN,
+  NODE_WIDTHS,
+  DEFAULT_NODE_WIDTH,
+  NODE_HEIGHTS,
+  DEFAULT_NODE_HEIGHT,
   isEdgeAllowed,
 } from './types';
 import {
@@ -20,6 +24,9 @@ import {
   isMapLayerArtifact,
 } from './detectors';
 import { applyColumnLayout } from './layout';
+
+// Uniform edge stroke — all edges use a single neutral grey
+const EDGE_STROKE = 'var(--border)';
 
 export function buildGraph(
   artifacts: Artifact[],
@@ -149,6 +156,8 @@ export function buildGraph(
       id: a.id,
       type: 'mapNode',
       position: { x: 0, y: 0 },
+      initialWidth: NODE_WIDTHS[type] ?? DEFAULT_NODE_WIDTH,
+      initialHeight: NODE_HEIGHTS[type] ?? DEFAULT_NODE_HEIGHT,
       draggable: false,
       connectable: false,
       data: {
@@ -183,6 +192,37 @@ export function buildGraph(
     }
   }
 
+  // ── Pre-count edges per node (source + target) for offset calculation
+  const EDGE_SPACING = 4; // pixels between parallel edges
+  const sourceEdgeCount = new Map<string, number>();
+  const targetEdgeCount = new Map<string, number>();
+
+  // Counting pass — mirrors the dedup logic below
+  const countDedup = new Set<string>();
+  for (const a of projectArtifacts) {
+    const sourceType = typeOf.get(a.id)!;
+    for (const refName of extractArtifactRefs(a.frontmatter)) {
+      const target = byName.get(refName);
+      if (!target || !nodeIdSet.has(target.id) || target.id === a.id) continue;
+      const targetType = typeOf.get(target.id)!;
+      if (!isEdgeAllowed(sourceType, targetType)) continue;
+      const ek = `${a.id}->${target.id}`;
+      if (countDedup.has(ek)) continue;
+      countDedup.add(ek);
+      const rk = `${target.id}->${a.id}`;
+      if (allEdgeKeys.has(rk)) {
+        if (countDedup.has(rk)) continue;
+        countDedup.add(rk);
+      }
+      sourceEdgeCount.set(a.id, (sourceEdgeCount.get(a.id) ?? 0) + 1);
+      targetEdgeCount.set(target.id, (targetEdgeCount.get(target.id) ?? 0) + 1);
+    }
+  }
+
+  // ── Build edges with per-node offsets ──────────────────────────────
+  const sourceEdgeIndex = new Map<string, number>();
+  const targetEdgeIndex = new Map<string, number>();
+
   for (const a of projectArtifacts) {
     const sourceType = typeOf.get(a.id)!;
     for (const refName of extractArtifactRefs(a.frontmatter)) {
@@ -203,16 +243,24 @@ export function buildGraph(
         edgeDedup.add(reverseKey);
       }
 
-      let stroke = 'var(--border)';
       const isSameColumn = TYPE_COLUMN[sourceType] === TYPE_COLUMN[targetType];
-      if (sourceType === 'feature' && targetType === 'feature') stroke = 'var(--earth)';
-      else if (sourceType === 'system' && targetType === 'system') stroke = 'var(--water)';
-      else if (sourceType === 'ui' && targetType === 'ui') stroke = 'var(--fire)';
-      else if (sourceType === 'system') stroke = 'var(--water)';
 
       if (!isMutual) {
         dagreEdges.push({ source: a.id, target: target.id, minlen: 1, sameColumn: isSameColumn });
       }
+
+      // Compute centerY offset — considers both source fan-out and target fan-in
+      const sIdx = sourceEdgeIndex.get(a.id) ?? 0;
+      sourceEdgeIndex.set(a.id, sIdx + 1);
+      const sCount = sourceEdgeCount.get(a.id) ?? 1;
+      const sourceOffset = sCount > 1 ? (sIdx - (sCount - 1) / 2) * EDGE_SPACING : 0;
+
+      const tIdx = targetEdgeIndex.get(target.id) ?? 0;
+      targetEdgeIndex.set(target.id, tIdx + 1);
+      const tCount = targetEdgeCount.get(target.id) ?? 1;
+      const targetOffset = tCount > 1 ? (tIdx - (tCount - 1) / 2) * EDGE_SPACING : 0;
+
+      const offset = sourceOffset + targetOffset;
 
       edges.push({
         id: isMutual ? `${a.id}<->${target.id}` : `${a.id}->${target.id}`,
@@ -220,12 +268,14 @@ export function buildGraph(
         target: target.id,
         sourceHandle: 'right-out',
         targetHandle: 'left-in',
-        type: 'smoothstep',
+        type: 'offsetSmoothStep',
         animated: false,
+        data: { offset },
         style: {
           strokeWidth: isSameColumn ? 2 : 1.5,
-          stroke,
-          opacity: isMutual ? 0.7 : isSameColumn ? 0.6 : 0.35,
+          stroke: EDGE_STROKE,
+          opacity: 0.45,
+          pointerEvents: 'none' as const,
         },
       });
     }

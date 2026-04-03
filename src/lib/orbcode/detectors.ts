@@ -35,7 +35,7 @@ export function detectArtifactType(filename: string): MapArtifactType {
     if (lastType === 'overview') return 'overview';
     if (lastType === 'test') return 'test';
     if (lastType === 'e2e') return 'e2e';
-    if (lastType === 'environment') return 'env';
+    if (lastType === 'environment' || lastType === 'env') return 'env';
   }
   if (name.startsWith('(OrbCode Project)') && !name.includes(' . ')) return 'project';
   return 'unknown';

@@ -10,8 +10,22 @@ variables:
     type: string
     required: false
     description: Description of the system boundary to create
+  projectName:
+    type: string
+    required: false
+    description: The OrbCode project name this artifact belongs to
+  stubPath:
+    type: string
+    required: false
+    description: Path to the stub file to rewrite in place
 ---
 You are creating a new draft System artifact in the OrbCode map.
+{{#if projectName}}
+
+**OrbCode Project:** {{ projectName }}
+
+All artifacts you create must be placed under the `(OrbCode Project) {{ projectName }}` project. Use this project name in artifact filenames.
+{{/if}}
 {{#if artifactPaths}}
 
 Context artifacts:
@@ -19,9 +33,13 @@ Context artifacts:
 
 Read these artifacts to understand the existing system boundaries. The new system should represent a distinct bounded context.
 {{/if}}
+{{#if stubPath}}
+
+**Stub file:** A stub artifact has been created at `{{ stubPath }}`. You must rewrite this file in place with the full system content — do NOT create a new file. Rename the stub to its final name after writing the content.
+{{/if}}
 
 Create the system using the OrbCode system template (tmp-orbc-system-v0.2).
-Name it: `(OrbCode Project) [ProjectName] . (System) [Descriptive Name].md`
+Name it: `(OrbCode Project) {{#if projectName}}{{ projectName }}{{/if}} . (System) [Descriptive Name].md`
 Set status to `draft` — this system boundary has not been fully documented yet.
 Link it to the overview via artifact-refs if applicable.
 The system artifact lives in the Map/ folder of the OrbCode project.

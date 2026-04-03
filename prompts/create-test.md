@@ -10,8 +10,22 @@ variables:
     type: string
     required: false
     description: Description of the test to create
+  projectName:
+    type: string
+    required: false
+    description: The OrbCode project name this artifact belongs to
+  stubPath:
+    type: string
+    required: false
+    description: Path to the stub file to rewrite in place
 ---
 You are creating a new draft Test artifact in the OrbCode map.
+{{#if projectName}}
+
+**OrbCode Project:** {{ projectName }}
+
+All artifacts you create must be placed under the `(OrbCode Project) {{ projectName }}` project. Use this project name in artifact filenames.
+{{/if}}
 {{#if artifactPaths}}
 
 Features being tested:
@@ -19,10 +33,14 @@ Features being tested:
 
 Read these artifacts to understand what needs testing. The test should verify the described behavior.
 {{/if}}
+{{#if stubPath}}
+
+**Stub file:** A stub artifact has been created at `{{ stubPath }}`. You must rewrite this file in place with the full test content — do NOT create a new file. Rename the stub to its final name after writing the content.
+{{/if}}
 
 Create the test using the OrbCode test template (tmp-orbc-test-v0.2).
 Set status to `draft` — this test has not been implemented yet.
-Name it: `(OrbCode Project) [ProjectName] . (Test) [Descriptive Test Name].md`
+Name it: `(OrbCode Project) {{#if projectName}}{{ projectName }}{{/if}} . (Test) [Descriptive Test Name].md`
 The test name should describe what it tests, not the type of test (not "Unit" or "Integration").
 Link it to the feature being tested via artifact-refs — the feature relationship is a reference, not part of the filename.
 The test lives in the Testing/ folder of the OrbCode project, not in the Map/ folder.

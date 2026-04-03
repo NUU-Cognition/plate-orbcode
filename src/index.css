@@ -24,6 +24,7 @@
   --border: rgba(26, 43, 65, 0.12);
   --input: rgba(26, 43, 65, 0.12);
   --ring: rgba(61, 106, 154, 0.3);
+  --minimap-mask: rgba(255, 255, 255, 0.65);
   --radius: 1rem;
   --brand: #3d6a9a;
   --brand-foreground: #ffffff;
@@ -76,6 +77,13 @@
   --rose-bg2: #f0cede;
   --rose-text: #702048;
   --rose-faint: #d498b0;
+
+  --data: #8b6aaf;
+  --data-accent: #6d4e92;
+  --data-bg: #f3eef9;
+  --data-bg2: #e4d9f0;
+  --data-text: #5b3d80;
+  --data-faint: #b498cc;
 }
 
 .dark {
@@ -98,6 +106,7 @@
   --border: rgba(255, 255, 255, 0.1);
   --input: rgba(255, 255, 255, 0.12);
   --ring: rgba(120, 176, 218, 0.34);
+  --minimap-mask: rgba(19, 19, 22, 0.6);
   --brand: #78b0da;
   --brand-foreground: #ffffff;
 
@@ -149,6 +158,13 @@
   --rose-bg2: #342430;
   --rose-text: #e8b0c6;
   --rose-faint: #a86080;
+
+  --data: #a888cc;
+  --data-accent: #8a68b0;
+  --data-bg: #221a2a;
+  --data-bg2: #2e2238;
+  --data-text: #c8a8e0;
+  --data-faint: #7a58a0;
 }
 
 @theme inline {
@@ -222,6 +238,13 @@
   --color-rose-bg2: var(--rose-bg2);
   --color-rose-text: var(--rose-text);
   --color-rose-faint: var(--rose-faint);
+
+  --color-data: var(--data);
+  --color-data-accent: var(--data-accent);
+  --color-data-bg: var(--data-bg);
+  --color-data-bg2: var(--data-bg2);
+  --color-data-text: var(--data-text);
+  --color-data-faint: var(--data-faint);
   --radius-sm: calc(var(--radius) - 6px);
   --radius-md: calc(var(--radius) - 4px);
   --radius-lg: var(--radius);
@@ -252,6 +275,16 @@
 }
 
 /* React Flow overrides */
+.react-flow__minimap-mask {
+  stroke: var(--brand);
+  stroke-width: 1;
+  stroke-opacity: 0.5;
+}
+
+.react-flow__edge {
+  pointer-events: none;
+}
+
 .react-flow__node.selected .react-flow__handle {
   background: var(--brand) !important;
 }
@@ -270,6 +303,15 @@
   background: oklch(from var(--brand) l c h / 0.06) !important;
   border: 1.5px dashed oklch(from var(--brand) l c h / 0.35) !important;
   border-radius: 4px;
+}
+
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
 /* OrbCraft node glow for nodes with active orbs */

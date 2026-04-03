@@ -6,6 +6,7 @@ export type {
   ArtifactStatus,
   MapNodeData,
   OrbCodeProject,
+  OrbCodeViewConfig,
   FeatureEntry,
   FlowNode,
   SidebarNode,
@@ -15,12 +16,14 @@ export type {
 export {
   TYPE_COLUMN,
   TYPE_COLORS,
+  applyOrbCodeViewConfig,
   NODE_WIDTHS,
   DEFAULT_NODE_WIDTH,
   NODE_HEIGHTS,
   DEFAULT_NODE_HEIGHT,
   ALLOWED_EDGE,
   isEdgeAllowed,
+  parseOrbCodeViewConfig,
 } from './types';
 
 export {

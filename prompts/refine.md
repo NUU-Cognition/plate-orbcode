@@ -41,6 +41,8 @@ Then refine the artifacts according to these instructions:
 
 Update the artifacts to accurately reflect the current state of the codebase. Fix any stale references, update descriptions, and ensure code-refs point to real files.
 
+If you rename any OrbCode artifacts, check their `artifact-refs` for linked Tasks. Update the `orbcode-refs` field on those Tasks to reflect the new artifact name. This keeps the bidirectional link intact.
+
 {{#if additionalContext}}
 Also incorporate these user instructions:
 

@@ -111,6 +111,7 @@ export function useGraphState(hierarchy: ProjectHierarchy | null) {
     selectedNodeId, setSelectedNodeId,
     // Collapse
     collapsedNodes,
+    setCollapsedNodes,
     treeChildCounts,
     toggleCollapse,
     expandAll,

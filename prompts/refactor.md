@@ -27,6 +27,8 @@ If no additional instructions were provided, review the selected artifacts and s
 
 After making changes, run [[hwkfl-orbc-sync]] to verify the map is consistent.
 
+If you rename, split, or delete any OrbCode artifacts, check their `artifact-refs` for linked Tasks. Update the `orbcode-refs` field on those Tasks to reflect the new artifact name/path. This keeps the bidirectional link intact.
+
 ## OrbCraft
 
 Read [[knw-orbc-orbcraft]] for full documentation on the OrbCraft visualization system.

@@ -91,7 +91,7 @@ export function MapPreviewStatusField({
         aria-haspopup="listbox"
         aria-expanded={open}
         className={cn(
-          'inline-flex items-center gap-1 rounded-full pr-1 transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20 disabled:cursor-not-allowed disabled:opacity-60',
+          'inline-flex items-center gap-1 rounded-full pr-1 transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60',
         )}
       >
         <StatusBadge status={currentStatus} loading={loading} />

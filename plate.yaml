@@ -9,3 +9,8 @@ api:
   - GET /api/plates
   - GET /api/artifacts
 shard: orbcode
+actions:
+  - id: orbcode-map.update-from-task
+    label: Update OrbCode From Task
+    description: Launch an OrbCode sync session using a completed task as the source of truth
+    icon: Orbit
